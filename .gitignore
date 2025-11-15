@@ -1,0 +1,3 @@
+# Local credential store (contains sensitive authentication tokens)
+.git-credentials
+
