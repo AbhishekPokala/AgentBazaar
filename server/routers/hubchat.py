@@ -12,10 +12,8 @@ import sys
 import os
 
 # Add parent directories to path
-# server/routers/hubchat.py is 2 levels deep from workspace root
-workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-server_dir = os.path.join(workspace_root, 'ui', 'server')
-sys.path.insert(0, workspace_root)
+# server/routers/hubchat.py is 1 level deep from server root
+server_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, server_dir)
 
 from db.database import get_db
@@ -23,7 +21,7 @@ from db.repositories.message_repository import MessageRepository
 from db.repositories.task_repository import TaskRepository
 from models.message import Message, MessageCreate
 
-# Import ConversationalOrchestrator from workspace root
+# Import ConversationalOrchestrator from server/hubchat
 from hubchat.conversational_orchestrator import ConversationalOrchestrator
 
 logger = logging.getLogger(__name__)

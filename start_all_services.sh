@@ -43,22 +43,22 @@ echo ""
 
 # Start Agent Services (NO API SERVER - agents are standalone)
 echo -e "${GREEN}[1/6] Summarizer Agent (Port 8001) - Claude-powered${NC}"
-start_service "summarizer" 8001 "services/summarizer" "python app.py"
+start_service "summarizer" 8001 "server/services/summarizer" "python app.py"
 
 echo -e "${GREEN}[2/6] Translator Agent (Port 8002) - Claude-powered${NC}"
-start_service "translator" 8002 "services/translator" "python app.py"
+start_service "translator" 8002 "server/services/translator" "python app.py"
 
 echo -e "${GREEN}[3/6] Search Agent (Port 8003) - Claude-powered${NC}"
-start_service "search" 8003 "services/search" "python app.py"
+start_service "search" 8003 "server/services/search" "python app.py"
 
 echo -e "${GREEN}[4/6] Mock Busy Agent (Port 8004)${NC}"
-start_service "mock_busy" 8004 "services/mock_busy" "python app.py"
+start_service "mock_busy" 8004 "server/services/mock_busy" "python app.py"
 
 echo -e "${GREEN}[5/6] Mock High Price Agent (Port 8005)${NC}"
-start_service "mock_highprice" 8005 "services/mock_highprice" "python app.py"
+start_service "mock_highprice" 8005 "server/services/mock_highprice" "python app.py"
 
 echo -e "${GREEN}[6/6] Mock Negotiator Agent (Port 8006)${NC}"
-start_service "mock_negotiator" 8006 "services/mock_negotiator" "python app.py"
+start_service "mock_negotiator" 8006 "server/services/mock_negotiator" "python app.py"
 
 # Wait for all services to start
 sleep 3
@@ -85,5 +85,5 @@ echo "  curl http://localhost:8001/health"
 echo "  curl -X POST http://localhost:8001/execute -H 'Content-Type: application/json' -d '{\"text\":\"AI is transforming technology.\"}'"
 echo ""
 echo "🤖 Test with HubChat orchestrator:"
-echo "  cd hubchat && python example_usage.py"
+echo "  cd server/hubchat && python example_usage.py"
 

@@ -1,11 +1,12 @@
 #!/bin/bash
 # Script to stop all running services
+# Stops: Frontend (Vite), Backend API (FastAPI), and all Agent Services
 # Usage: ./stop_all_services.sh
 
 # Get absolute path of project root
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🛑 Stopping Agentic Marketplace Services..."
+echo "🛑 Stopping Agent Bazaar - All Services..."
 echo ""
 
 # Function to stop a service
@@ -29,6 +30,12 @@ stop_service() {
 }
 
 # Stop all services
+echo "Stopping Frontend & Backend..."
+stop_service "frontend"
+stop_service "backend_api"
+
+echo ""
+echo "Stopping Agent Services..."
 stop_service "summarizer"
 stop_service "translator"
 stop_service "search"
@@ -38,8 +45,8 @@ stop_service "mock_negotiator"
 
 # Also try to kill by port (backup method)
 echo ""
-echo "Checking for any remaining processes on ports 8000-8006..."
-for port in {8000..8006}; do
+echo "Checking for any remaining processes on ports 5173, 8000-8006..."
+for port in 5173 {8000..8006}; do
     pid=$(lsof -ti:$port)
     if [ ! -z "$pid" ]; then
         echo "Killing process on port $port (PID: $pid)"

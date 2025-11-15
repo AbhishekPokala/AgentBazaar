@@ -55,18 +55,46 @@ async def invoke_agent_tool(args: dict[str, Any]) -> dict[str, Any]:
             "is_error": True
         }
 
-    # Call the FastAPI invoke endpoint
+    # Call the FastAPI backend
     backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
-    
+
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
+            # First, create the task (or get existing one)
+            logger.info(f"Creating task for: {subtask}")
+            task_response = await client.post(
+                f"{backend_url}/api/tasks",
+                json={
+                    "userQuery": subtask,
+                    "requiredSkills": required_skills if required_skills else [agent_id],
+                    "status": "created",
+                    "maxBudget": 10.0  # Default budget
+                }
+            )
+
+            if task_response.status_code in [200, 201]:
+                # Get the generated task_id from response
+                task_data = task_response.json()
+                actual_task_id = task_data.get("id")
+                logger.info(f"Task created with ID: {actual_task_id}")
+            else:
+                logger.error(f"Failed to create task: {task_response.status_code} - {task_response.text}")
+                return {
+                    "content": [{
+                        "type": "text",
+                        "text": f"Error: Failed to create task - {task_response.text}"
+                    }],
+                    "is_error": True
+                }
+
+            # Now invoke the agent with the actual task_id
             payload = {
-                "task_id": task_id,
+                "task_id": actual_task_id,
                 "agent_id": agent_id,
-                "subtask": subtask,
-                "required_skills": required_skills
+                "subtask_type": subtask,
+                "input_data": {"required_skills": required_skills} if required_skills else {}
             }
-            
+
             logger.info(f"Calling FastAPI invoke endpoint: {backend_url}/api/invoke-agent")
             response = await client.post(
                 f"{backend_url}/api/invoke-agent",
@@ -112,7 +140,7 @@ class ConversationalOrchestrator:
     Uses Claude Agent SDK with conversation history for context retention.
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str[Optional] = ""):
         """
         Initialize the conversational orchestrator.
 

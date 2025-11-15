@@ -1,7 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 // Get API base URL from environment variable, fallback to relative URLs
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const API_BASE_URL = "http://localhost:8000";
 
 function getFullUrl(url: string): string {
   if (url.startsWith("http://") || url.startsWith("https://")) {
