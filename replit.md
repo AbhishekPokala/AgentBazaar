@@ -5,10 +5,17 @@
 Agent Bazaar is a multi-agent orchestration platform with an integrated marketplace and payment systems. This Replit project contains the complete UI implementation.
 
 **Repository Structure:**
-- `ui/` - Complete frontend implementation (React SPA + Express mock backend)
+- `ui/` - Complete frontend implementation (React SPA + Express dev server)
+  - `ui/server/` - FastAPI backend (port 8000) for HubChat orchestration
+  - `ui/client/` - React frontend (served via Express on port 5000)
 - Backend services (FastAPI) are in separate folders: `api/`, `hubchat/`, `services/`
 
 The UI provides a data-intensive interface that prioritizes information hierarchy, spacious layouts for dense data, and professional polish inspired by Linear/Stripe design systems.
+
+**Development Setup:**
+- Frontend (React + Express): Runs on port 5000 via "Start application" workflow
+- Backend (FastAPI): Runs on port 8000 (requires separate workflow or manual start)
+- See `PHASE4_INTEGRATION_GUIDE.md` for detailed setup instructions
 
 ## User Preferences
 
@@ -21,10 +28,16 @@ Preferred communication style: Simple, everyday language.
 All UI code is organized in the `ui/` folder:
 ```
 ui/
-├── client/           # React frontend
-├── server/           # Express mock backend  
-├── shared/           # Shared TypeScript schemas
-├── package.json      # Dependencies
+├── client/           # React frontend (port 5000)
+├── server/           # FastAPI backend (port 8000)
+│   ├── main.py       # FastAPI app definition
+│   ├── run_server.py # Server runner (no auto-reload)
+│   ├── routers/      # API route handlers
+│   ├── db/           # Database models and repositories
+│   └── config.py     # Server configuration
+├── shared/           # Shared TypeScript schemas  
+├── package.json      # Frontend dependencies
+├── .env              # Environment variables (VITE_API_BASE_URL)
 └── design_guidelines.md
 ```
 
@@ -62,33 +75,56 @@ ui/
 
 ### Backend Architecture
 
-**Framework**: Express.js with TypeScript running on Node.js
+**Framework**: FastAPI with Python 3.x (port 8000)
 
-**Architecture Pattern**: REST API with in-memory storage (designed to be replaced with database)
+**Architecture Pattern**: REST API with PostgreSQL database via SQLAlchemy async ORM
 
 **API Endpoints**:
-- `GET /api/agents` - List all agents
-- `GET /api/agents/:id` - Get agent details
-- `GET /api/tasks` - List all tasks
-- `GET /api/tasks/:id` - Get task details
-- `GET /api/tasks/:id/steps` - Get task execution steps
-- `POST /api/tasks` - Create new task
-- `POST /api/invoke-agent` - Simulate agent execution
-- `GET /api/messages` - Get chat messages
-- `POST /api/hubchat/message` - Send chat message
-- `GET /api/payments/bazaarbucks` - Get internal payment logs
-- `GET /api/payments/stripe` - Get Stripe payment logs
+- **Agents**:
+  - `GET /api/agents` - List all agents
+  - `GET /api/agents/{id}` - Get agent details
+  - `POST /api/agents` - Create new agent
+  - `PATCH /api/agents/{id}` - Update agent
+  - `DELETE /api/agents/{id}` - Delete agent
+
+- **Tasks**:
+  - `GET /api/tasks` - List all tasks
+  - `GET /api/tasks/{id}` - Get task details
+  - `GET /api/tasks/{id}/steps` - Get task execution steps
+  - `POST /api/tasks` - Create new task
+
+- **Agent Invocation**:
+  - `POST /api/invoke-agent` - Invoke an agent for execution
+
+- **HubChat** (Conversational Orchestration):
+  - `GET /api/messages` - Get chat message history
+  - `POST /api/hubchat/message` - Send message to orchestrator
+  - `GET /api/hubchat/messages?task_id={id}` - Get task-specific messages
+  - `DELETE /api/hubchat/messages/{task_id}` - Clear task conversation
 
 **Storage Layer**:
-- Currently: In-memory storage using Map data structures (MemStorage class)
-- Designed for: PostgreSQL via Drizzle ORM (configuration present but not yet implemented)
-- Interface-based design allows swapping storage implementations
+- PostgreSQL database (via Replit's built-in Postgres)
+- SQLAlchemy async ORM with Pydantic models
+- Repository pattern for data access
+- Database migrations handled by Alembic
+
+**HubChat Integration**:
+- ConversationalOrchestrator class (in `/hubchat/conversational_orchestrator.py`)
+- Claude SDK (Anthropic) for AI-powered orchestration
+- Full conversation context retention across multiple turns
+- Task creation and agent invocation capabilities
+- Cost tracking for Claude API usage
 
 **Development Server**:
+- Entry point: `ui/server/run_server.py` (uvicorn without auto-reload)
+- CORS enabled for frontend communication
+- JSON request/response handling
+- Health check endpoint: `/health`
+
+**Frontend Integration Server** (Express.js - port 5000):
 - Vite middleware integration for HMR in development
 - Static file serving in production
-- Request/response logging middleware
-- JSON body parsing with raw body preservation (for webhooks)
+- Proxies API requests to FastAPI backend
 
 ### Data Models
 
@@ -114,7 +150,9 @@ ui/
 - StripePayment: external payment integration
 
 **Message**:
-- Chat history: role (user/assistant), content, timestamp
+- Chat history: id, role (user/assistant), content, timestamp
+- Task association: optional task_id for task-specific conversations
+- Cost tracking: cost_breakdown JSON for external API costs
 
 ### Design System Implementation
 
@@ -163,11 +201,18 @@ ui/
 - **Zod**: Schema validation
 - **@hookform/resolvers**: Zod integration with React Hook Form
 
-### Database (Configured but Not Active)
-- **Drizzle ORM**: TypeScript ORM for PostgreSQL
-- **@neondatabase/serverless**: Serverless Postgres driver
-- **drizzle-zod**: Zod schema generation from Drizzle schemas
-- Configuration present in drizzle.config.ts and shared/schema.ts
+### Backend (Python/FastAPI)
+- **FastAPI**: Modern async web framework
+- **SQLAlchemy**: Async ORM for database operations
+- **Pydantic**: Data validation and settings management
+- **Uvicorn**: ASGI server
+- **Anthropic SDK**: Claude AI integration for HubChat
+- **PostgreSQL**: Database (via Replit's built-in Postgres)
+
+### Database (Active - PostgreSQL)
+- **SQLAlchemy**: Async ORM for Python backend
+- **Alembic**: Database migration tool
+- **Connection**: Via DATABASE_URL environment variable (Replit managed)
 
 ### Development Tools
 - **Vite**: Build tool and dev server
@@ -183,3 +228,15 @@ ui/
 ### Payment Integration (Planned)
 - Stripe integration configured in schema but not yet implemented
 - BazaarBucks internal currency system for marketplace transactions
+
+## Recent Changes (November 2025)
+
+### Phase 4: HubChat Integration Complete
+- **FastAPI Backend**: Fully integrated with PostgreSQL database
+- **ConversationalOrchestrator**: Claude SDK-based orchestration with full context retention
+- **Message System**: Database-backed chat history with task association
+- **Frontend Integration**: React frontend configured to communicate with FastAPI backend
+- **Dual Server Setup**: Express (port 5000) + FastAPI (port 8000)
+- **Environment Configuration**: VITE_API_BASE_URL for flexible backend targeting
+
+See `PHASE4_INTEGRATION_GUIDE.md` for detailed setup and testing instructions.
