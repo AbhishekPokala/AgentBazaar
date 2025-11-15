@@ -67,3 +67,7 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Local credential store (contains sensitive authentication tokens)
+.git-credentials
+
+
