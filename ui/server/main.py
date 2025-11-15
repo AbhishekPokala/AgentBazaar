@@ -9,6 +9,7 @@ from db.database import init_db
 from routers.agents import router as agents_router
 from routers.tasks import router as tasks_router
 from routers.invoke import router as invoke_router
+from routers.hubchat import router as hubchat_router
 
 # Configure logging
 logging.basicConfig(
@@ -52,6 +53,7 @@ app.add_middleware(
 app.include_router(agents_router)
 app.include_router(tasks_router)
 app.include_router(invoke_router)
+app.include_router(hubchat_router)
 
 
 @app.get("/")

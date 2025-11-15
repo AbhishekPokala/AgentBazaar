@@ -35,3 +35,11 @@ pydantic-settings
 python-dotenv
 sqlalchemy
 uvicorn
+asyncpg
+fastapi
+httpx
+pydantic
+pydantic-settings
+python-dotenv
+sqlalchemy
+uvicorn[standard]
