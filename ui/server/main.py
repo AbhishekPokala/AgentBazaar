@@ -10,6 +10,7 @@ from routers.agents import router as agents_router
 from routers.tasks import router as tasks_router
 from routers.invoke import router as invoke_router
 from routers.hubchat import router as hubchat_router
+from routers.messages import router as messages_router
 
 # Configure logging
 logging.basicConfig(
@@ -54,6 +55,7 @@ app.include_router(agents_router)
 app.include_router(tasks_router)
 app.include_router(invoke_router)
 app.include_router(hubchat_router)
+app.include_router(messages_router)
 
 
 @app.get("/")
