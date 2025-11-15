@@ -5,6 +5,8 @@ from datetime import datetime
 
 class MessageBase(BaseModel):
     """Base Message schema"""
+    model_config = ConfigDict(populate_by_name=True)
+    
     role: str  # user, assistant
     content: str
     task_id: Optional[str] = Field(None, alias="taskId", serialization_alias="taskId")

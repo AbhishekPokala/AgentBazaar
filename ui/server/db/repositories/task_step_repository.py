@@ -46,7 +46,7 @@ class TaskStepRepository:
         
         step = TaskStepModel(
             id=step_id,
-            **step_data.model_dump()
+            **step_data.model_dump(by_alias=False)
         )
         self.session.add(step)
         await self.session.commit()

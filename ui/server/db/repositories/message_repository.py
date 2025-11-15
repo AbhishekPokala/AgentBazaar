@@ -48,7 +48,7 @@ class MessageRepository:
         
         message = MessageModel(
             id=message_id,
-            **message_data.model_dump()
+            **message_data.model_dump(by_alias=False)
         )
         
         self.session.add(message)

@@ -44,7 +44,7 @@ class TaskRepository:
         
         task = TaskModel(
             id=task_id,
-            **task_data.model_dump()
+            **task_data.model_dump(by_alias=False)
         )
         self.session.add(task)
         await self.session.commit()

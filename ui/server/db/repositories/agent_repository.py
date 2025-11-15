@@ -44,7 +44,7 @@ class AgentRepository:
                 detail=f"dynamic_price ({agent_data.dynamic_price}) must be >= base_price ({agent_data.base_price})"
             )
         
-        agent = AgentModel(**agent_data.model_dump())
+        agent = AgentModel(**agent_data.model_dump(by_alias=False))
         self.session.add(agent)
         await self.session.commit()
         await self.session.refresh(agent)
@@ -61,7 +61,7 @@ class AgentRepository:
             return None
         
         # Update only provided fields
-        update_data = agent_data.model_dump(exclude_unset=True)
+        update_data = agent_data.model_dump(exclude_unset=True, by_alias=False)
         
         # Validate dynamic_price >= base_price after update
         new_base = update_data.get("base_price", agent.base_price)
