@@ -1,2 +1,1 @@
 # AgentBazaar
-VK is here
