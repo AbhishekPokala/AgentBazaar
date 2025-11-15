@@ -1,10 +1,13 @@
 # Core API Dependencies
-fastapi==0.104.1
+fastapi
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
-# Anthropic Agent SDK
+# Claude Agent SDK (Official)
+claude-agent-sdk
+
+# Anthropic API (for HubChat orchestrator)
 anthropic==0.39.0
 
 # Database
