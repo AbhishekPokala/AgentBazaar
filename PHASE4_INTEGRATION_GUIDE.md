@@ -90,9 +90,11 @@ Frontend displays messages
 - `ui/server/routers/messages.py` - NEW: Provides `/api/messages` endpoint
 - `ui/server/routers/hubchat.py` - HubChat endpoints
 - `ui/server/run_server.py` - NEW: Server runner without auto-reload
+- `ui/server/models/message.py` - **UPDATED**: Added camelCase serialization aliases (taskId, costBreakdown, createdAt)
 
 ### Frontend
 - `ui/client/src/lib/queryClient.ts` - Added VITE_API_BASE_URL support
+- `ui/client/src/pages/hubchat.tsx` - **UPDATED**: Displays cost breakdown with internal/external/total costs
 - `ui/.env` - NEW: Environment configuration
 
 ## Testing the Integration
