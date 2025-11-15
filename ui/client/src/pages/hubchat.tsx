@@ -109,16 +109,21 @@ export default function HubChat() {
                         Cost Breakdown
                       </div>
                       <div className="space-y-1">
-                        {Array.isArray((message.costBreakdown as any).subtasks) && 
-                          (message.costBreakdown as any).subtasks.map((subtask: any, idx: number) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground">{subtask.agent}</span>
-                              <span className="font-mono">${subtask.cost.toFixed(2)}</span>
-                            </div>
-                          ))}
+                        {(message.costBreakdown as any).internal_cost !== undefined && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">Internal</span>
+                            <span className="font-mono">${((message.costBreakdown as any).internal_cost || 0).toFixed(3)}</span>
+                          </div>
+                        )}
+                        {(message.costBreakdown as any).external_cost !== undefined && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">External (Claude)</span>
+                            <span className="font-mono">${((message.costBreakdown as any).external_cost || 0).toFixed(3)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between items-center text-sm pt-2 mt-2 border-t font-semibold">
                           <span>Total</span>
-                          <span className="font-mono">${(message.costBreakdown as any).total?.toFixed(2)}</span>
+                          <span className="font-mono">${((message.costBreakdown as any).total_cost || 0).toFixed(3)}</span>
                         </div>
                       </div>
                     </Card>
