@@ -29,7 +29,7 @@ export default function Marketplace() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-semibold mb-2" data-testid="text-page-title">
-            Agent Marketplace
+            Agent Bazaar
           </h1>
           <p className="text-sm text-muted-foreground">
             Browse and select from our collection of specialized AI agents

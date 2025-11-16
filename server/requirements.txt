@@ -11,6 +11,8 @@ python-dotenv==1.0.1
 claude-agent-sdk
 anthropic
 greenlet
+requests
+web3
 
 # Agent services dependencies (merged from services/requirements.txt)
 # Note: fastapi, uvicorn, and pydantic versions from above will be used

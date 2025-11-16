@@ -97,7 +97,7 @@ async def send_chat_message(
         
         # Get orchestrator and process request (synchronous call)
         orch = get_orchestrator()
-        result = orch.process_user_request(
+        result = await orch.process_user_request(
             user_query=request.content,
             max_budget=request.max_budget or 10.0
         )

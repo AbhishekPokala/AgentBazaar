@@ -35,6 +35,7 @@ echo "   • OpenAPI: http://localhost:8000/openapi.json"
 echo "=" * 60
 echo ""
 
+cd server
 cd hubchat
 python api.py
 
