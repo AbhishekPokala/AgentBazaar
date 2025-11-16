@@ -95,9 +95,9 @@ async def send_chat_message(
         )
         user_message = await message_repo.create(user_message_data)
         
-        # Get orchestrator and process request
+        # Get orchestrator and process request (synchronous call)
         orch = get_orchestrator()
-        result = await orch.process_user_request(
+        result = orch.process_user_request(
             user_query=request.content,
             max_budget=request.max_budget or 10.0
         )

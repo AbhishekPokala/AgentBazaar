@@ -83,3 +83,15 @@ class MessageRepository:
         
         await self.session.commit()
         return count
+    
+    async def get_assistant_with_orchestration(self, limit: int = 100) -> List[Message]:
+        """Get assistant messages that have orchestration_data, ordered by newest first"""
+        result = await self.session.execute(
+            select(MessageModel)
+            .where(MessageModel.role == "assistant")
+            .where(MessageModel.orchestration_data.isnot(None))
+            .order_by(MessageModel.created_at.desc())
+            .limit(limit)
+        )
+        messages = result.scalars().all()
+        return [Message.model_validate(msg) for msg in messages]

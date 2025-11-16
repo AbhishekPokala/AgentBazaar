@@ -60,33 +60,38 @@ async def get_locus_payments(
     try:
         message_repo = MessageRepository(session)
         
-        # Get all assistant messages with orchestration data
-        messages = await message_repo.get_all(limit=limit)
+        # Fetch more messages to ensure we collect enough payments
+        # (Each message can have multiple payments, so fetch 10x the limit)
+        messages = await message_repo.get_assistant_with_orchestration(limit=limit * 10)
         
         # Extract payments from orchestration_data
         payments = []
         for msg in messages:
-            if msg.role == "assistant" and msg.orchestration_data:
-                orchestration = msg.orchestration_data
-                payments_made = orchestration.get("payments_made", [])
+            orchestration = msg.orchestration_data
+            payments_made = orchestration.get("payments_made", [])
+            
+            for payment in payments_made:
+                payments.append(LocusPayment(
+                    id=f"{msg.id}-{payment.get('agent_id', 'unknown')}",
+                    timestamp=msg.created_at,
+                    agent_id=payment.get("agent_id", "unknown"),
+                    agent_name=payment.get("agent_id", "unknown").replace("_", " ").title(),
+                    amount=payment.get("amount", 0.0),
+                    memo=payment.get("memo", ""),
+                    recipient_wallet=payment.get("recipient", "unknown"),
+                    network="base",
+                    token="USDC"
+                ))
                 
-                for payment in payments_made:
-                    payments.append(LocusPayment(
-                        id=f"{msg.id}-{payment.get('agent_id', 'unknown')}",
-                        timestamp=msg.created_at,
-                        agent_id=payment.get("agent_id", "unknown"),
-                        agent_name=payment.get("agent_id", "unknown").replace("_", " ").title(),
-                        amount=payment.get("amount", 0.0),
-                        memo=payment.get("memo", ""),
-                        recipient_wallet=payment.get("recipient", "unknown"),
-                        network="base",
-                        token="USDC"
-                    ))
+                # Stop collecting if we've reached the desired payment count
+                if len(payments) >= limit:
+                    break
+            
+            if len(payments) >= limit:
+                break
         
-        # Sort by timestamp (newest first)
-        payments.sort(key=lambda p: p.timestamp, reverse=True)
-        
-        return payments
+        # Return up to the requested number of payments
+        return payments[:limit]
         
     except Exception as e:
         raise HTTPException(
