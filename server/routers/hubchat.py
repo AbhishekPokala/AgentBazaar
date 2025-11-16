@@ -21,8 +21,8 @@ from db.repositories.message_repository import MessageRepository
 from db.repositories.task_repository import TaskRepository
 from models.message import Message, MessageCreate
 
-# Import ConversationalOrchestrator from server/hubchat
-from hubchat.conversational_orchestrator import ConversationalOrchestrator
+# Import Orchestrator from server/hubchat
+from hubchat.orchestrator import HubChatOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -41,20 +41,21 @@ class ChatMessageResponse(BaseModel):
     success: bool
     user_message: Message
     assistant_message: Message
+    orchestration_data: Optional[Dict[str, Any]] = None
     cost_breakdown: Optional[Dict[str, Any]] = None
     task_id: Optional[str] = None
 
 
 # Initialize orchestrator (singleton)
-orchestrator: Optional[ConversationalOrchestrator] = None
+orchestrator: Optional[HubChatOrchestrator] = None
 
 
-def get_orchestrator() -> ConversationalOrchestrator:
+def get_orchestrator() -> HubChatOrchestrator:
     """Get or create the orchestrator instance"""
     global orchestrator
     if orchestrator is None:
         try:
-            orchestrator = ConversationalOrchestrator()
+            orchestrator = HubChatOrchestrator()
             logger.info("Orchestrator initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize orchestrator: {str(e)}")
@@ -72,43 +73,19 @@ async def send_chat_message(
 ):
     """
     Send a message to HubChat orchestrator.
-    Maintains full conversation context for continuous dialogue.
+    Single-turn orchestration: discovers agents, invokes them, processes payments.
     
-    The orchestrator can:
-    - Answer questions
-    - Ask for clarifications
-    - Create tasks
-    - Invoke agents
-    - Track costs
+    The orchestrator:
+    - Discovers agents matching user query
+    - Invokes selected agents
+    - Processes USDC payments via Locus blockchain
+    - Returns orchestration metadata
     """
     try:
         # Get repositories
         message_repo = MessageRepository(session)
-        task_repo = TaskRepository(session)
         
-        # Get conversation history
-        if request.task_id:
-            # Get messages for this specific task
-            history = await message_repo.get_by_task_id(request.task_id)
-            
-            # Verify task exists
-            task = await task_repo.get_by_id(request.task_id)
-            if not task:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Task {request.task_id} not found"
-                )
-        else:
-            # Get all messages (general conversation)
-            history = await message_repo.get_all(limit=100)
-        
-        # Convert to conversation format
-        conversation_history = [
-            {"role": msg.role, "content": msg.content}
-            for msg in history
-        ]
-        
-        logger.info(f"Processing message with {len(conversation_history)} previous messages")
+        logger.info(f"Processing query: {request.content[:100]}...")
         
         # Store user message
         user_message_data = MessageCreate(
@@ -118,30 +95,39 @@ async def send_chat_message(
         )
         user_message = await message_repo.create(user_message_data)
         
-        # Get orchestrator and process message
+        # Get orchestrator and process request
         orch = get_orchestrator()
-        result = await orch.process_message(
-            user_message=request.content,
-            conversation_history=conversation_history,
-            task_id=request.task_id,
-            max_budget=request.max_budget
+        result = await orch.process_user_request(
+            user_query=request.content,
+            max_budget=request.max_budget or 10.0
         )
+        
+        # Extract orchestration data
+        orchestration_data = {
+            "agents_discovered": result.get("agents_discovered", []),
+            "agents_used": result.get("agents_used", []),
+            "payments_made": result.get("payments_made", []),
+            "total_paid": result.get("total_paid", 0.0)
+        }
         
         # Store assistant response
         assistant_message_data = MessageCreate(
             role="assistant",
-            content=result["response"],
-            task_id=result.get("task_id", request.task_id),
-            cost_breakdown=result.get("cost_breakdown")
+            content=result["output"],
+            task_id=request.task_id,
+            orchestration_data=orchestration_data
         )
         assistant_message = await message_repo.create(assistant_message_data)
         
+        logger.info(f"Orchestration complete: {len(orchestration_data['agents_discovered'])} discovered, "
+                   f"{len(orchestration_data['agents_used'])} used, ${orchestration_data['total_paid']:.2f} paid")
+        
         return ChatMessageResponse(
-            success=result["success"],
+            success=True,
             user_message=user_message,
             assistant_message=assistant_message,
-            cost_breakdown=result.get("cost_breakdown"),
-            task_id=result.get("task_id", request.task_id)
+            orchestration_data=orchestration_data,
+            task_id=request.task_id
         )
         
     except HTTPException:

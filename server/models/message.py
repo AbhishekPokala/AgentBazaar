@@ -11,6 +11,7 @@ class MessageBase(BaseModel):
     content: str
     task_id: Optional[str] = Field(None, alias="taskId", serialization_alias="taskId")
     cost_breakdown: Optional[Dict[str, Any]] = Field(None, alias="costBreakdown", serialization_alias="costBreakdown")
+    orchestration_data: Optional[Dict[str, Any]] = Field(None, alias="orchestrationData", serialization_alias="orchestrationData")  # Orchestration metadata
 
 
 class MessageCreate(MessageBase):

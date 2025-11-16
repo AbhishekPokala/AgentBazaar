@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Filter } from "lucide-react";
+import { Download, Filter, Copy } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,10 +14,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 import type { BazaarBucksPayment, StripePayment } from "@shared/schema";
 
+interface LocusPayment {
+  id: string;
+  timestamp: string;
+  agent_id: string;
+  agent_name: string;
+  amount: number;
+  memo: string;
+  recipient_wallet: string;
+  network: string;
+  token: string;
+}
+
 export default function Payments() {
-  const [activeTab, setActiveTab] = useState("bazaarbucks");
+  const [activeTab, setActiveTab] = useState("locus");
+  const { toast } = useToast();
 
   const { data: bazaarBucksPayments, isLoading: loadingBB, isError: errorBB, refetch: refetchBB } = useQuery<BazaarBucksPayment[]>({
     queryKey: ["/api/payments/bazaarbucks"],
@@ -26,6 +40,18 @@ export default function Payments() {
   const { data: stripePayments, isLoading: loadingStripe, isError: errorStripe, refetch: refetchStripe } = useQuery<StripePayment[]>({
     queryKey: ["/api/payments/stripe"],
   });
+
+  const { data: locusPayments, isLoading: loadingLocus, isError: errorLocus, refetch: refetchLocus } = useQuery<LocusPayment[]>({
+    queryKey: ["/api/payments/locus"],
+  });
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: "Wallet address copied to clipboard",
+    });
+  };
 
   const handleExport = () => {
     const data = activeTab === "bazaarbucks" ? bazaarBucksPayments : stripePayments;
@@ -73,6 +99,9 @@ export default function Payments() {
           <CardHeader className="p-6 pb-0">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="w-full justify-start">
+                <TabsTrigger value="locus" data-testid="tab-locus">
+                  Locus (Blockchain)
+                </TabsTrigger>
                 <TabsTrigger value="bazaarbucks" data-testid="tab-bazaarbucks">
                   BazaarBucks (Internal)
                 </TabsTrigger>
@@ -80,6 +109,77 @@ export default function Payments() {
                   Stripe (External)
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="locus" className="mt-6">
+                <CardContent className="p-0">
+                  {errorLocus ? (
+                    <div className="text-center py-12">
+                      <p className="text-destructive mb-4">Failed to load Locus payments</p>
+                      <Button onClick={() => refetchLocus()} variant="outline" data-testid="button-retry-locus">
+                        Retry
+                      </Button>
+                    </div>
+                  ) : loadingLocus ? (
+                    <div className="space-y-4 p-6">
+                      {[...Array(5)].map((_, i) => (
+                        <Skeleton key={i} className="h-14 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs uppercase">Time</TableHead>
+                          <TableHead className="text-xs uppercase">Agent</TableHead>
+                          <TableHead className="text-xs uppercase">Amount</TableHead>
+                          <TableHead className="text-xs uppercase">Recipient</TableHead>
+                          <TableHead className="text-xs uppercase">Network</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {locusPayments?.map((payment) => (
+                          <TableRow key={payment.id} className="hover-elevate" data-testid={`row-locus-${payment.id}`}>
+                            <TableCell className="font-mono text-sm">
+                              {new Date(payment.timestamp).toLocaleString()}
+                            </TableCell>
+                            <TableCell data-testid={`text-locus-agent-${payment.id}`}>
+                              {payment.agent_name}
+                            </TableCell>
+                            <TableCell className="font-mono font-medium" data-testid={`text-locus-amount-${payment.id}`}>
+                              ${payment.amount.toFixed(2)} {payment.token}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">
+                                  {payment.recipient_wallet.slice(0, 6)}...{payment.recipient_wallet.slice(-4)}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => copyToClipboard(payment.recipient_wallet)}
+                                  data-testid={`button-copy-wallet-${payment.id}`}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{payment.network}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+
+                  {!loadingLocus && locusPayments?.length === 0 && (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">No Locus blockchain transactions yet</p>
+                    </div>
+                  )}
+                </CardContent>
+              </TabsContent>
 
               <TabsContent value="bazaarbucks" className="mt-6">
                 <CardContent className="p-0">

@@ -1,12 +1,30 @@
 """
-Payment API Routes (Stub Implementation for Phase 5)
+Payment API Routes
 """
-from fastapi import APIRouter
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List, Dict, Any
+from pydantic import BaseModel
+from datetime import datetime
 
+from db.database import get_db
+from db.repositories.message_repository import MessageRepository
 from models.payment import BazaarBucksPayment, StripePayment
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
+
+
+class LocusPayment(BaseModel):
+    """Locus blockchain payment"""
+    id: str
+    timestamp: datetime
+    agent_id: str
+    agent_name: str
+    amount: float
+    memo: str
+    recipient_wallet: str
+    network: str = "base"
+    token: str = "USDC"
 
 
 @router.get("/bazaarbucks", response_model=List[BazaarBucksPayment])
@@ -29,3 +47,49 @@ async def get_stripe_payments():
     Full payment tracking will be implemented in Phase 5.
     """
     return []
+
+
+@router.get("/locus", response_model=List[LocusPayment])
+async def get_locus_payments(
+    limit: int = 100,
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Get Locus blockchain payments extracted from orchestration data
+    """
+    try:
+        message_repo = MessageRepository(session)
+        
+        # Get all assistant messages with orchestration data
+        messages = await message_repo.get_all(limit=limit)
+        
+        # Extract payments from orchestration_data
+        payments = []
+        for msg in messages:
+            if msg.role == "assistant" and msg.orchestration_data:
+                orchestration = msg.orchestration_data
+                payments_made = orchestration.get("payments_made", [])
+                
+                for payment in payments_made:
+                    payments.append(LocusPayment(
+                        id=f"{msg.id}-{payment.get('agent_id', 'unknown')}",
+                        timestamp=msg.created_at,
+                        agent_id=payment.get("agent_id", "unknown"),
+                        agent_name=payment.get("agent_id", "unknown").replace("_", " ").title(),
+                        amount=payment.get("amount", 0.0),
+                        memo=payment.get("memo", ""),
+                        recipient_wallet=payment.get("recipient", "unknown"),
+                        network="base",
+                        token="USDC"
+                    ))
+        
+        # Sort by timestamp (newest first)
+        payments.sort(key=lambda p: p.timestamp, reverse=True)
+        
+        return payments
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching Locus payments: {str(e)}"
+        )

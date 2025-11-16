@@ -12,4 +12,5 @@ class Message(Base):
     content = Column(Text, nullable=False)
     task_id = Column(String, nullable=True)
     cost_breakdown = Column(JSON, nullable=True)  # {"subtasks": [...], "total": 0.0}
+    orchestration_data = Column(JSON, nullable=True)  # Orchestration metadata: agents_discovered, agents_used, payments_made, total_paid
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

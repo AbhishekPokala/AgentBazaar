@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { OrchestrationTimeline } from "@/components/OrchestrationTimeline";
+import { AgentDiscoveryCards } from "@/components/AgentDiscoveryCards";
 import type { Message } from "@shared/schema";
 
 export default function HubChat() {
@@ -127,6 +129,20 @@ export default function HubChat() {
                         </div>
                       </div>
                     </Card>
+                  )}
+
+                  {message.role === "assistant" && (message as any).orchestrationData && (
+                    <div className="mt-3 space-y-3">
+                      <AgentDiscoveryCards 
+                        agentsDiscovered={(message as any).orchestrationData.agents_discovered || []} 
+                      />
+                      <OrchestrationTimeline
+                        agentsDiscovered={(message as any).orchestrationData.agents_discovered || []}
+                        agentsUsed={(message as any).orchestrationData.agents_used || []}
+                        paymentsMade={(message as any).orchestrationData.payments_made || []}
+                        totalPaid={(message as any).orchestrationData.total_paid || 0}
+                      />
+                    </div>
                   )}
                 </div>
 

@@ -12,6 +12,7 @@ from routers.invoke import router as invoke_router
 from routers.hubchat import router as hubchat_router
 from routers.messages import router as messages_router
 from routers.payments import router as payments_router
+from routers.wallet import router as wallet_router
 
 # Configure logging
 logging.basicConfig(
@@ -58,6 +59,7 @@ app.include_router(invoke_router)
 app.include_router(hubchat_router)
 app.include_router(messages_router)
 app.include_router(payments_router)
+app.include_router(wallet_router)
 
 
 @app.get("/")

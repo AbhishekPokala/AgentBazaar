@@ -6,8 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Coins } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { WalletBalance } from "@/components/WalletBalance";
 import Marketplace from "@/pages/marketplace";
 import HubChat from "@/pages/hubchat";
 import Tasks from "@/pages/tasks";
@@ -44,10 +43,7 @@ export default function App() {
               <header className="flex items-center justify-between gap-4 p-4 border-b">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
                 <div className="flex items-center gap-4">
-                  <Badge variant="outline" className="gap-2 px-3 py-1.5" data-testid="badge-balance">
-                    <Coins className="h-4 w-4 text-chart-4" />
-                    <span className="font-mono">100 BB</span>
-                  </Badge>
+                  <WalletBalance />
                   <ThemeToggle />
                 </div>
               </header>
