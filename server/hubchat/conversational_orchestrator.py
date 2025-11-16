@@ -1,6 +1,6 @@
 """
-Conversational HubChat Orchestrator
-Maintains conversation context across multiple turns
+Simple HubChat Orchestrator using Claude Agent SDK
+Processes single queries and orchestrates agent execution
 """
 
 import os
@@ -34,10 +34,12 @@ except ImportError:
         "required_skills": list
     }
 )
-async def invoke_agent_tool(args: dict[str, Any]) -> dict[str, Any]:
+def invoke_agent_tool(args: dict[str, Any]) -> dict[str, Any]:
     """
     Tool for HubChat to invoke agents through the FastAPI backend.
     This ensures proper cost tracking and task lifecycle management.
+    
+    NOTE: Must be SYNC for Claude Agent SDK compatibility (no asyncio.run!)
     """
     task_id = args.get("task_id")
     agent_id = args.get("agent_id")
@@ -55,37 +57,45 @@ async def invoke_agent_tool(args: dict[str, Any]) -> dict[str, Any]:
             "is_error": True
         }
 
-    # Call the FastAPI backend
+    # Call the FastAPI backend using SYNC httpx.Client
     backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            # First, create the task (or get existing one)
-            logger.info(f"Creating task for: {subtask}")
-            task_response = await client.post(
-                f"{backend_url}/api/tasks",
-                json={
-                    "userQuery": subtask,
-                    "requiredSkills": required_skills if required_skills else [agent_id],
-                    "status": "created",
-                    "maxBudget": 10.0  # Default budget
-                }
-            )
+        # Use synchronous httpx.Client (NOT AsyncClient)
+        with httpx.Client(timeout=60.0) as client:
+            # Only create a task if task_id is not provided
+            if not task_id or task_id == "null" or task_id == "None":
+                logger.info(f"Creating new task for: {subtask}")
+                task_response = client.post(
+                    f"{backend_url}/api/tasks",
+                    json={
+                        "userQuery": subtask,
+                        "requiredSkills": required_skills if required_skills else [agent_id],
+                        "status": "created",
+                        "maxBudget": 10.0  # Default budget
+                    }
+                )
 
-            if task_response.status_code in [200, 201]:
-                # Get the generated task_id from response
-                task_data = task_response.json()
-                actual_task_id = task_data.get("id")
-                logger.info(f"Task created with ID: {actual_task_id}")
+                if task_response.status_code in [200, 201]:
+                    # Get the generated task_id from response
+                    # API returns {"task": {...}} structure
+                    task_data = task_response.json()
+                    task_obj = task_data.get("task") or task_data  # Handle both structures
+                    actual_task_id = task_obj.get("id")
+                    logger.info(f"Task created with ID: {actual_task_id}")
+                else:
+                    logger.error(f"Failed to create task: {task_response.status_code} - {task_response.text}")
+                    return {
+                        "content": [{
+                            "type": "text",
+                            "text": f"Error: Failed to create task - {task_response.text}"
+                        }],
+                        "is_error": True
+                    }
             else:
-                logger.error(f"Failed to create task: {task_response.status_code} - {task_response.text}")
-                return {
-                    "content": [{
-                        "type": "text",
-                        "text": f"Error: Failed to create task - {task_response.text}"
-                    }],
-                    "is_error": True
-                }
+                # Use the provided task_id
+                actual_task_id = task_id
+                logger.info(f"Using existing task ID: {actual_task_id}")
 
             # Now invoke the agent with the actual task_id
             payload = {
@@ -96,7 +106,7 @@ async def invoke_agent_tool(args: dict[str, Any]) -> dict[str, Any]:
             }
 
             logger.info(f"Calling FastAPI invoke endpoint: {backend_url}/api/invoke-agent")
-            response = await client.post(
+            response = client.post(
                 f"{backend_url}/api/invoke-agent",
                 json=payload
             )
@@ -106,13 +116,14 @@ async def invoke_agent_tool(args: dict[str, Any]) -> dict[str, Any]:
 
         logger.info(f"Agent {agent_id} invoked successfully")
         
-        # Format the response nicely
+        # Format the response nicely and ALWAYS include the task_id
         if result.get("success"):
             return {
                 "content": [{
                     "type": "text",
                     "text": f"Agent {agent_id} completed successfully.\nResult: {result.get('result', 'N/A')}\nCost: ${result.get('cost', 0):.4f}"
-                }]
+                }],
+                "task_id": actual_task_id  # Propagate task ID for tracking
             }
         else:
             return {
@@ -120,7 +131,8 @@ async def invoke_agent_tool(args: dict[str, Any]) -> dict[str, Any]:
                     "type": "text",
                     "text": f"Agent {agent_id} failed: {result.get('error', 'Unknown error')}"
                 }],
-                "is_error": True
+                "is_error": True,
+                "task_id": actual_task_id  # Propagate task ID even on error
             }
             
     except Exception as e:
@@ -136,127 +148,121 @@ async def invoke_agent_tool(args: dict[str, Any]) -> dict[str, Any]:
 
 class ConversationalOrchestrator:
     """
-    Conversational orchestrator that maintains context across multiple turns.
-    Uses Claude Agent SDK with conversation history for context retention.
+    Simple orchestrator that processes single queries using Claude Agent SDK.
+    Does not maintain conversation history - each query is independent.
     """
 
-    def __init__(self, api_key: str[Optional] = ""):
+    def __init__(self, api_key: Optional[str] = None):
         """
-        Initialize the conversational orchestrator.
+        Initialize the orchestrator.
 
         Args:
             api_key: Anthropic API key (defaults to ANTHROPIC_API_KEY env var)
         """
-        logger.info("Initializing ConversationalOrchestrator...")
+        logger.info("Initializing HubChat Orchestrator...")
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY must be set")
 
-        logger.info("Creating MCP server with invoke_agent tool...")
         # Create MCP server with invoke_agent tool
         self.tools_server = create_sdk_mcp_server(
             name="agent_tools",
             tools=[invoke_agent_tool]
         )
-        logger.info("ConversationalOrchestrator initialized successfully")
+        logger.info("Orchestrator initialized successfully")
 
     async def process_message(
         self,
         user_message: str,
-        conversation_history: List[Dict[str, str]],
+        conversation_history: List[Dict[str, str]] = None,
         task_id: Optional[str] = None,
         max_budget: Optional[float] = None
     ) -> Dict[str, Any]:
         """
-        Process a user message with full conversation context.
+        Process a single user query using Claude Agent SDK.
+        Does NOT use conversation history - each query is independent.
 
         Args:
-            user_message: The new user message
-            conversation_history: List of previous messages [{"role": "user/assistant", "content": "..."}]
-            task_id: Optional task ID for linking messages to tasks
+            user_message: The user's query
+            conversation_history: IGNORED - kept for API compatibility
+            task_id: Optional task ID for linking
             max_budget: Optional maximum budget in USD
 
         Returns:
             Dict containing:
             - success: bool
-            - response: str (assistant's response)
+            - response: str (orchestrator's response)
             - cost_breakdown: dict with cost information
             - task_id: str (if applicable)
         """
-        logger.info(f"Processing message with {len(conversation_history)} previous messages")
+        logger.info(f"Processing single query (non-conversational): {user_message[:100]}...")
         
-        # Build the conversation with context
-        messages = []
-        for msg in conversation_history:
-            messages.append({
-                "role": msg["role"],
-                "content": msg["content"]
-            })
-        
-        # Add the new user message
-        messages.append({
-            "role": "user",
-            "content": user_message
-        })
-        
-        # Add budget context if provided
-        if max_budget:
-            messages[-1]["content"] += f"\n\n(Max budget: ${max_budget:.2f})"
-        
-        # Add task_id context if provided
-        if task_id:
-            messages[-1]["content"] += f"\n\n(Task ID: {task_id})"
-
-        # Configure Claude with Agent SDK
-        logger.info("Configuring ClaudeAgentOptions...")
+        # Configure Claude Agent SDK with tools
+        # Tool naming format: mcp__{server_name}__{tool_name}
+        # Server name: "agent_tools", Tool name: "invoke_agent"
+        # Full identifier: "mcp__agent_tools__invoke_agent"
         options = ClaudeAgentOptions(
             system_prompt=ORCHESTRATOR_SYSTEM_PROMPT,
-            mcp_servers={"agents": self.tools_server},
-            allowed_tools=["mcp__agents__invoke_agent"],
+            mcp_servers={"agent_tools": self.tools_server},
+            allowed_tools=["mcp__agent_tools__invoke_agent"],
             permission_mode="bypassPermissions"
         )
 
-        # Process with full conversation context
         response_text = ""
         total_cost = 0.0
         agents_used = []
 
         try:
-            logger.info("Creating ClaudeSDKClient...")
-            async with ClaudeSDKClient(options=options) as client:
-                # Send all messages (full context)
-                logger.info(f"Sending {len(messages)} messages to Claude...")
-                for msg in messages:
-                    if msg["role"] == "user":
-                        await client.query(msg["content"])
-
+            # Use Claude Agent SDK to process the query
+            # Pass API key explicitly to ClaudeSDKClient
+            async with ClaudeSDKClient(api_key=self.api_key, options=options) as client:
+                logger.info("Sending query to Claude Agent SDK...")
+                
+                # Send the user query
+                await client.query(user_message)
+                
+                # Collect the response
                 logger.info("Collecting response...")
-                # Collect the assistant's response
+                from claude_agent_sdk import AssistantMessage, TextBlock, ToolUseBlock
+                
                 async for message in client.receive_response():
-                    if hasattr(message, 'content'):
+                    # Handle AssistantMessage type from Claude Agent SDK
+                    if isinstance(message, AssistantMessage):
                         for block in message.content:
-                            # Collect text
-                            if hasattr(block, 'text'):
+                            # Collect text responses
+                            if isinstance(block, TextBlock):
                                 response_text += block.text
                                 logger.debug(f"Collected text: {block.text[:50]}...")
-
+                            
                             # Track tool usage (agent invocations)
-                            if hasattr(block, 'name') and block.name == "mcp__agents__invoke_agent":
-                                logger.info(f"Agent invoked: {block.input.get('agent_id', 'unknown')}")
-                                agent_info = {
-                                    "agent": block.input.get("agent_id", "unknown"),
-                                    "task_id": block.input.get("task_id", task_id)
-                                }
-                                agents_used.append(agent_info)
+                            elif isinstance(block, ToolUseBlock):
+                                logger.info(f"Agent invoked: {block.name} with input {block.input}")
+                                if 'invoke_agent' in block.name:
+                                    agent_info = {
+                                        "agent": block.input.get("agent_id", "unknown"),
+                                        "task_id": block.input.get("task_id", task_id)
+                                    }
+                                    agents_used.append(agent_info)
+                        
+                        # Capture token usage for cost tracking
+                        if hasattr(message, 'usage') and message.usage:
+                            input_tokens = getattr(message.usage, 'input_tokens', 0)
+                            output_tokens = getattr(message.usage, 'output_tokens', 0)
+                            
+                            # Calculate costs
+                            input_cost = (input_tokens / 1_000_000) * 3.0
+                            output_tokens_cost = (output_tokens / 1_000_000) * 15.0
+                            total_cost += input_cost + output_tokens_cost
+                            logger.info(f"Tokens: {input_tokens} in, {output_tokens} out | Cost: ${total_cost:.4f}")
 
                 logger.info("Response collection complete")
 
             return {
                 "success": True,
-                "response": response_text.strip(),
+                "response": response_text.strip() if response_text else "Task completed successfully.",
                 "cost_breakdown": {
-                    "internal_cost": total_cost,
-                    "external_cost": 0.0,
+                    "internal_cost": 0.0,
+                    "external_cost": total_cost,
                     "total_cost": total_cost
                 },
                 "agents_used": agents_used,
@@ -264,7 +270,7 @@ class ConversationalOrchestrator:
             }
 
         except Exception as e:
-            logger.error(f"Error processing message: {str(e)}", exc_info=True)
+            logger.error(f"Error processing query: {str(e)}", exc_info=True)
             return {
                 "success": False,
                 "response": f"I encountered an error: {str(e)}",

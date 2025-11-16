@@ -5,17 +5,17 @@
 Agent Bazaar is a multi-agent orchestration platform with an integrated marketplace and payment systems. This Replit project contains the complete UI implementation.
 
 **Repository Structure:**
-- `ui/` - Complete frontend implementation (React SPA + Express dev server)
-  - `ui/server/` - FastAPI backend (port 8000) for HubChat orchestration
-  - `ui/client/` - React frontend (served via Express on port 5000)
-- Backend services (FastAPI) are in separate folders: `api/`, `hubchat/`, `services/`
+- `/server/` - FastAPI backend (port 8000) - authoritative backend with HubChat orchestration
+- `/ui/` - React frontend (Vite on port 5173)
+- `/server/services/` - Agent microservices (ports 8001-8006)
 
 The UI provides a data-intensive interface that prioritizes information hierarchy, spacious layouts for dense data, and professional polish inspired by Linear/Stripe design systems.
 
 **Development Setup:**
-- Frontend (React + Express): Runs on port 5000 via "Start application" workflow
-- Backend (FastAPI): Runs on port 8000 (requires separate workflow or manual start)
-- See `PHASE4_INTEGRATION_GUIDE.md` for detailed setup instructions
+- Frontend (React + Vite): Run `cd ui && npx vite` (port 5173)
+- Backend (FastAPI): Run `cd server && python main.py` (port 8000)
+- Agents: Run `./start_all_services.sh` (ports 8001-8006)
+- See `SIMPLE_ORCHESTRATOR_GUIDE.md` for detailed setup instructions
 
 ## User Preferences
 
@@ -25,20 +25,26 @@ Preferred communication style: Simple, everyday language.
 
 ## Project Structure
 
-All UI code is organized in the `ui/` folder:
 ```
-ui/
-├── client/           # React frontend (port 5000)
-├── server/           # FastAPI backend (port 8000)
-│   ├── main.py       # FastAPI app definition
-│   ├── run_server.py # Server runner (no auto-reload)
-│   ├── routers/      # API route handlers
-│   ├── db/           # Database models and repositories
-│   └── config.py     # Server configuration
-├── shared/           # Shared TypeScript schemas  
-├── package.json      # Frontend dependencies
-├── .env              # Environment variables (VITE_API_BASE_URL)
-└── design_guidelines.md
+/
+├── server/                   # FastAPI backend (port 8000)
+│   ├── main.py              # FastAPI app definition
+│   ├── routers/             # API route handlers
+│   ├── db/                  # Database models and repositories
+│   ├── hubchat/             # HubChat orchestrator (Claude Agent SDK)
+│   │   ├── conversational_orchestrator.py  # Simple single-turn orchestrator
+│   │   └── prompts.py       # System prompts
+│   └── services/            # Agent microservices (8001-8006)
+│
+├── ui/                      # React frontend (port 5173)
+│   ├── client/              # React source code
+│   │   ├── src/pages/       # Page components (hubchat, tasks, agents, etc.)
+│   │   └── src/lib/         # Utilities and API client
+│   ├── .env                 # Frontend env (VITE_API_BASE_URL=http://localhost:8000)
+│   └── package.json         # Frontend dependencies
+│
+├── start_all_services.sh    # Start agent microservices
+└── SIMPLE_ORCHESTRATOR_GUIDE.md  # Architecture documentation
 ```
 
 ### Frontend Architecture
@@ -109,10 +115,10 @@ ui/
 - Database migrations handled by Alembic
 
 **HubChat Integration**:
-- ConversationalOrchestrator class (in `/hubchat/conversational_orchestrator.py`)
-- Claude SDK (Anthropic) for AI-powered orchestration
-- Full conversation context retention across multiple turns
-- Task creation and agent invocation capabilities
+- Simple single-turn orchestrator (in `/server/hubchat/conversational_orchestrator.py`)
+- Claude Agent SDK for AI-powered orchestration
+- **Non-conversational**: Each query is processed independently
+- Automatic agent coordination via `invoke_agent` tool
 - Cost tracking for Claude API usage
 
 **Development Server**:
